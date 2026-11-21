@@ -1,0 +1,55 @@
+<!doctype html><html lang="hi"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Etawah Cafe</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#faf8f2;color:#173e38;font:16px/1.5 system-ui,sans-serif}header{background:#143e37;color:white;padding:20px max(5vw,20px);font-size:20px;font-weight:750}header span{color:#f1c876}main{max-width:640px;margin:auto;padding:24px 18px 48px}h1{font-size:31px;line-height:1.25;margin:8px 0}h2{font-size:19px}p{color:#49665d}section{margin:18px 0}button,a{font:inherit}button{background:#16644e;color:white;border:0;border-radius:12px;padding:13px 17px;font-weight:650;cursor:pointer}button:disabled{opacity:.5}.row{display:flex;align-items:center;justify-content:space-between;text-align:left;width:100%;background:white;color:#183f35;border:1px solid #d5dfd6;margin:8px 0;padding:16px}.row b{color:#347964}.note{padding:12px 14px;background:#fff0cd;border-radius:12px;font-size:14px}.back{background:transparent;color:#216c53;padding:8px 0}input,textarea{font:inherit;display:block;width:100%;border:1px solid #aec0b6;background:white;border-radius:9px;padding:10px;margin:5px 0 14px}input[type=checkbox]{display:inline;width:auto}label{display:block}small{color:#51665c}#err{color:#9b2f21}a{display:inline-block;background:#165d48;color:white;border-radius:12px;padding:12px;text-decoration:none}[hidden]{display:none!important}
+</style><header>ETAWAH <span>CAFE</span></header><main>
+<div id="banner" class="note" hidden>अभ्यास मोड · काल्पनिक जानकारी और नमूना फ़ाइल इस्तेमाल करें।</div>
+<section id="login"><h1>मोबाइल से लॉगिन</h1><form id="phoneForm"><label>मोबाइल नंबर (+91)<input id="phone" type="tel" autocomplete="tel-national" inputmode="numeric" maxlength="10" pattern="[6-9][0-9]{9}" required></label><button>OTP प्राप्त करें</button></form>
+<form id="codeForm" hidden><p id="sent"></p><label>6 अंकों का OTP<input id="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label><button>लॉगिन करें</button> <button type="button" class="back" id="editPhone">नंबर बदलें / फिर भेजें</button></form></section>
+<section id="home" hidden><h1>सेवा चुनें</h1><p>उत्तर प्रदेश प्रमाण पत्र और पैन के लिए कैफ़े में आवेदन दें।</p><div id="services"></div><div id="history"></div></section>
+<section id="entry" hidden><button class="back" onclick="homePage()">‹ सभी सेवाएँ</button><h1 id="title"></h1><p id="price"></p>
+<form id="form"><label>आवेदक का पूरा नाम<input name="name" autocomplete="name" required minlength="2" maxlength="100"></label>
+<label>मोबाइल नंबर<input readonly name="mobile" type="tel" autocomplete="tel" inputmode="numeric" pattern="[6-9][0-9]{9}" maxlength="10" required></label>
+<label>पूरा पता<textarea name="address" required minlength="5" maxlength="500"></textarea></label><label><span id="prompt"></span><textarea name="detail" required maxlength="500"></textarea></label>
+<label>संबंधित दस्तावेज़ <small>(PDF, JPG या PNG)</small><input type="file" name="docs" accept=".pdf,.jpg,.jpeg,.png" multiple required></label><small>एक साथ 1–4 फ़ाइलें चुनें। हर फ़ाइल अधिकतम 4 MB।</small>
+<p><label><input type="checkbox" name="consent" value="yes" required> मैं आवेदन की जाँच और सेवा के लिए Etawah Cafe को मेरी जानकारी और दस्तावेज़ देखने की अनुमति देता/देती हूँ।</label></p>
+<button id="submit">आवेदन जमा करें</button></form></section>
+<section id="receipt" hidden><button class="back" onclick="homePage()">‹ सभी सेवाएँ</button><h1 id="state"></h1><p id="info"></p><p id="paymentMessage"></p><button id="pay">भुगतान करें</button> <button class="back" id="refresh">स्थिति जाँचें</button><div id="checkout"></div></section><p id="err" role="alert"></p></main>
+<script>
+const el=id=>document.getElementById(id), demo=location.protocol==='file:', labels={income:'आय प्रमाण पत्र',caste:'जाति प्रमाण पत्र',domicile:'निवास प्रमाण पत्र',pan:'नया पैन कार्ड',correction:'पैन कार्ड सुधार'}, prompts={income:'आय का स्रोत और अनुमानित वार्षिक आय',caste:'जाति और उपजाति (यदि लागू हो)',domicile:'निवास का स्थान और वहाँ रहने की अवधि',pan:'जन्मतिथि और पहचान प्रमाण के अनुसार नाम',correction:'पैन में कौन सा विवरण सुधारना है?'};
+let fees={income:8000,caste:8000,domicile:8000,pan:15000,correction:15000}, selected='', key='',samplePaid=false, busy=false;
+const keys=()=>JSON.parse(localStorage.getItem('ec-records-'+mobile)||'[]');
+function randomKey(){return Array.from(crypto.getRandomValues(new Uint8Array(32)),x=>x.toString(16).padStart(2,'0')).join('')}
+function panel(id){for(const k of ['login','home','entry','receipt'])el(k).hidden=k!==id;el('err').textContent='';window.scrollTo(0,0)}
+function row(parent,label,action){const b=document.createElement('button');b.className='row';b.textContent=label;const a=document.createElement('b');a.textContent='›';b.append(a);b.onclick=action;parent.append(b)}
+function homePage(){panel('home');el('history').replaceChildren();if(!demo)for(const r of keys())row(el('history'),labels[r.service]+' · आवेदन देखें',()=>{key=r.key;selected=r.service;showReceipt()})}
+function openForm(s){selected=s;key=randomKey();samplePaid=false;el('form').reset();el('form').elements.mobile.value=mobile;panel('entry');el('title').textContent=labels[s];el('prompt').textContent=prompts[s];el('price').textContent='सेवा शुल्क ₹'+fees[s]/100+(demo?' · अभ्यास में भुगतान नहीं कटेगा।':'')}
+async function api(path,body){let r=await fetch('/'+path,{method:'POST',headers:{'X-Application-Key':key},body});if(r.status===401){loginScreen();throw Error('फिर से लॉगिन करें।')}if(!r.ok)throw Error(r.status===400?'जानकारी, शुल्क और फ़ाइल प्रारूप जाँचें।':'सर्वर से पुष्टि नहीं मिली। दोबारा कोशिश करें।');return r.json()}
+async function run(fn){if(busy)return;busy=true;el('err').textContent='';try{await fn()}catch(e){el('err').textContent=e.message}finally{busy=false}}
+el('form').onsubmit=e=>{e.preventDefault();run(async()=>{let f=new FormData(el('form')),files=f.getAll('docs');if(files.length>4||files.some(x=>x.size>4194304||x.size===0))throw Error('1 से 4 फ़ाइलें चुनें, प्रत्येक 4 MB तक।');f.set('service',selected);f.set('fee',fees[selected]);if(!demo){await api('apply',f);const records=keys();if(!records.some(r=>r.key===key))localStorage.setItem('ec-records-'+mobile,JSON.stringify([{service:selected,key},...records]))}el('form').reset();await receipt()})};
+async function receipt(){panel('receipt');el('checkout').replaceChildren();el('state').textContent='स्थिति जाँची जा रही है…';el('info').textContent='';el('paymentMessage').textContent='';el('pay').hidden=true;let r=demo?{id:'DEMO',paid:samplePaid,amount:fees[selected]}:await api('status');el('state').textContent=r.paid?(demo?'अभ्यास पूरा हुआ':'भुगतान सत्यापित'):(demo?'नमूना आवेदन तैयार':'आवेदन प्राप्त हुआ');el('info').textContent=labels[selected]+' · '+r.id+' · ₹'+r.amount/100;el('paymentMessage').textContent=r.paid?(demo?'यह केवल अभ्यास की रसीद है।':'कैफ़े आपके दस्तावेज़ों की जाँच करेगा।'):(demo?'अगले बटन से भुगतान का अभ्यास करें।':'भुगतान के बाद यहाँ वापस आकर स्थिति जाँचें।');el('pay').hidden=r.paid;el('pay').textContent=demo?'नमूना भुगतान पूरा करें':'भुगतान लिंक लें'}
+function showReceipt(){run(receipt)}
+el('refresh').onclick=showReceipt;el('pay').onclick=()=>run(async()=>{if(demo){samplePaid=true;await receipt();return}let r=await api('pay');const a=document.createElement('a');a.href=r.url;a.textContent='Razorpay पर भुगतान करें ↗';el('checkout').replaceChildren(a)});
+let mobile='';
+el('banner').hidden=!demo;
+function loginScreen(){
+ mobile='';panel('login');el('phoneForm').hidden=false;el('codeForm').hidden=true;el('code').value='';
+}
+el('editPhone').onclick=loginScreen;
+async function loginRequest(path,body){
+ const response=await fetch('/login/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+ if(!response.ok)throw Error(response.status===403?'OTP गलत है या उसकी अवधि समाप्त हुई।':response.status===429?'कुछ देर बाद दोबारा कोशिश करें।':'SMS सेवा उपलब्ध नहीं है। बाद में कोशिश करें।');
+}
+el('phoneForm').onsubmit=e=>{e.preventDefault();run(async()=>{
+ const number=el('phone').value;
+ if(!demo)await loginRequest('send',{mobile:number});
+ mobile=number;el('phoneForm').hidden=true;el('codeForm').hidden=false;el('code').value='';
+ el('sent').textContent=demo?'अभ्यास के लिए OTP 123456 डालें।':'******'+number.slice(-4)+' पर भेजा गया OTP डालें।';el('code').focus();
+})};
+el('codeForm').onsubmit=e=>{e.preventDefault();run(async()=>{
+ const code=el('code').value;
+ if(demo){if(code!=='123456')throw Error('अभ्यास वाला OTP डालें।')}
+ else await loginRequest('check',{mobile,code});
+ await start();
+})};
+async function start(){el('services').replaceChildren();if(!demo){const r=await fetch('/fees');if(!r.ok)throw Error('शुल्क लोड नहीं हुए।');fees=await r.json()}for(const s in labels)row(el('services'),labels[s]+' · ₹'+fees[s]/100,()=>openForm(s));homePage()}loginScreen()
+</script></html>
